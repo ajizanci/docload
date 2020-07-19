@@ -15,22 +15,20 @@ function createDirectories(pathString) {
     }
 }
 
-async function test() {
-    let { data: html } = await axios.get("http://localhost:8080/")
-    html = cheerio.load(html)
-    const styles = html('link[rel=stylesheet]')
-    html(styles).each(async (i, style) => {
-        const styleWriteStream = fs.createWriteStream(style.attribs.href) 
-        const { data: styleReadStream } = await axios.get('http://localhost:8080/'+style.attribs.href, {
-            method: 'GET',
-            responseType: 'stream'
-        })
-        styleReadStream.pipe(styleWriteStream)
-        styleReadStream.on('finish', () => console.log("Helllll"))
-    })
-    // const line = html('.line')
-    // html(line).each((i, line) => console.log(line))
-
+async function main() {
+    
 }
 
-test()
+const getFileStream = async (url) => (await axios.get(url, { responseType: 'stream' })).data
+
+const downloadFile = async (url, path) => {
+    const writeStream = fs.createWriteStream(path),
+            readStream = await getFileStream(url);
+
+    readStream.pipe(writeStream)
+    readStream.on('error', (err) => {
+        throw err
+    })
+}
+
+main()
