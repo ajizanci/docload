@@ -1,12 +1,23 @@
 const axios = require("axios")
 const cheerio = require("cheerio")
 const fs = require("fs")
-const url = require("url")
+const URL = require("url")
 const path = require("path")
 
-function createDirectories(pathString) {
-    let pathBuilder = '';
+const pathExists = (pathString) => {
+    return new Promise((resolve, reject) => {
+        fs.exists(pathString, (err, exists) => {
+            if (err) reject(err)
+            else resolve(exists)
+        })
+    })
+}
 
+async function createPathIfNotExists(pathString) {
+    if (await pathExists(pathString))
+        return
+
+    let pathBuilder = '';
     for (let i = 0; i < pathString.length; i++) {
         pathBuilder += pathString[i]
         if (pathString[i] == '/') {
@@ -31,4 +42,17 @@ const downloadFile = async (url, path) => {
     })
 }
 
-main()
+const getPageName = pathString => {
+    if (/\.html$/.test(pathString)) {
+        return pathString
+    } else if (pathString[pathString.length - 1] == '/') {
+        return pathString + 'index.html'
+    } else {
+        return pathString + '.html'
+    }
+}
+
+async function downloadPage(url) {
+    const resolvedUrl = URL.parse(url)
+    createPathIfNotExists(resolvedUrl.host+'/')
+}
