@@ -21,59 +21,54 @@ async function downloadWebsite(urlString) {
   async function crawl(url) {
     if (vistedPages.has(url)) return;
 
+    const pagePath = path.join("sites", hostname, URL.parse(url).pathname);
     vistedPages.set(url, true);
     const { data } = await axios.get(url);
     const $ = cheerio.load(data),
       pageLinks = $("a"),
-      styleSelector = $('link[rel=stylesheet]'),
+      styleSelector = $("link[rel=stylesheet]"),
       scriptSelector = $("script"),
       imageSelector = $("img");
 
+    const pageScripts = $(scriptSelector)
+      .get()
+      .filter((s) => s.attribs.src);
+
     const scriptDownloads = downloadFiles(
-      $(scriptSelector)
-        .get()
-        .filter((s) => s.attribs.src)
-        .map((script) => {
-          const url = utils.getAbsUrl(script.attribs.src, urlString);
-          const spath = path.join("sites", hostname, "js", url.pathname);
-          return { url: url.href, path: spath };
-        })
-    ).then((x) => console.log(x));
+      pageScripts.map(processStatic("src", url, path.join("sites", hostname, "js")))
+    ).then(updatePaths(pageScripts, "src", pagePath, url));
 
-    const styleDownloads = downloadFiles(
-      $(styleSelector)
-        .get()
-        .filter((s) => s.attribs.href)
-        .map((script) => {
-          const url = utils.getAbsUrl(script.attribs.href, urlString);
-          const spath = path.join("sites", hostname, "css", url.pathname);
-          return { url: url.href, path: spath };
-        })
-    ).then((x) => console.log(x));
-
-    const imageDownloads = downloadFiles(
-      $(imageSelector)
-        .get()
-        .filter((s) => s.attribs.src)
-        .map((script) => {
-          const url = utils.getAbsUrl(script.attribs.src, urlString);
-          const spath = path.join("sites", hostname, "img", url.pathname);
-          return { url: url.href, path: spath };
-        })
-    ).then((x) => console.log(x));
-
-    Promise.all([scriptDownloads, styleDownloads, imageDownloads])
-        .then(() => {
-          console.log($.html())
-        })
+    Promise.all([scriptDownloads]) //, styleDownloads, imageDownloads])
+      .then(() => {
+        fs.writeFile(utils.getPageName(pagePath), $.html(), err => err && console.log(err))
+      });
 
     $(pageLinks).each((i, link) => {
       const target = link.attribs.href;
       if (URL.parse(target).hostname == hostname)
-        crawl(utils.getAbsUrl(target, urlString).href);
+        crawl(utils.getAbsUrl(target, url).href);
     });
   }
 }
+
+const processStatic = (prop, pageUrl, dirPath) => (static) => {
+  const surl = utils.getAbsUrl(static.attribs[prop], pageUrl);
+  const spath = path.join(dirPath, surl.pathname);
+  return { url: surl.href, path: spath };
+};
+
+const updatePaths = (elements, prop, pagePath, pageUrl) => (paths) => {
+  const pathMap = paths.reduce(
+    (acc, map) => new Map([...acc, ...map]),
+    new Map()
+  );
+  elements.forEach((s) => {
+    const scriptPath = pathMap.get(
+      utils.getAbsUrl(s.attribs[prop], pageUrl).href
+    );
+    s.attribs[prop] = path.relative(pagePath, scriptPath);
+  });
+};
 
 // files -> [{path, url}]
 const downloadFiles = (files) =>
@@ -88,7 +83,9 @@ const downloadFiles = (files) =>
 const downloadFile = (url, path) =>
   utils.getFileStream(url).then((readStream) => {
     readStream.pipe(fs.createWriteStream(path));
-    return { url, path };
+    const pathMap = new Map();
+    pathMap.set(url, path);
+    return pathMap;
   });
 
 function downloadPage(urlString) {

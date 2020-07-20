@@ -46,13 +46,11 @@ function createPathIfNotExists(pathString) {
 const getFileStream = async (url) =>
   (await axios.get(url, { responseType: "stream" })).data;
 
-const getPageName = (urlString) => {
-  if (/\.html$/.test(urlString)) {
-    return urlString;
-  } else if (urlString[urlString.length - 1] == "/") {
-    return urlString + "index.html";
+const getPageName = (pagePath) => {
+  if (/\.html$/.test(pagePath)) {
+    return pagePath;
   } else {
-    return urlString + ".html";
+    return path.join(pagePath, "index.html");
   }
 };
 
