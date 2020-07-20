@@ -33,9 +33,9 @@ function createPathIfNotExists(pathString) {
         .map(
           (dir) =>
             new Promise((resolve, reject) => {
-              fs.mkdir(dir, (err, madedir) => {
+              fs.mkdir(dir, (err) => {
                 if (err) reject(err);
-                else resolve(madedir);
+                else resolve(dir);
               });
             })
         )

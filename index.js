@@ -4,6 +4,7 @@ const fs = require("fs");
 const URL = require("url");
 const path = require("path");
 const utils = require("./utils.js");
+const { resolve } = require("path");
 
 async function downloadWebsite(urlString) {
   // const styles = new Map(),
@@ -13,9 +14,9 @@ async function downloadWebsite(urlString) {
     hostname = URL.parse(urlString).hostname;
 
   utils
-    .createPathIfNotExists(path.join("sites", hostname, ""))
+    .createPathIfNotExists(path.join("sites", hostname))
     .then(() => crawl(urlString))
-    .catch((err) => console.log(err + "HGHGJKGU"));
+    .catch((err) => console.log(err));
 
   async function crawl(url) {
     if (vistedPages.has(url)) return;
@@ -24,17 +25,19 @@ async function downloadWebsite(urlString) {
     const { data } = await axios.get(url);
     const $ = cheerio.load(data),
       pageLinks = $("a"),
-     //pageStyles = $('link[rel=stylesheet]'),
+      //pageStyles = $('link[rel=stylesheet]'),
       scriptSelector = $("script");
-    
-    const pageScriptsDownloads = downloadFiles($(scriptSelector).get()
-        .filter(s => s.attribs.src)
-        .map(script => {
+
+    downloadFiles(
+      $(scriptSelector)
+        .get()
+        .filter((s) => s.attribs.src)
+        .map((script) => {
           const url = utils.getAbsUrl(script.attribs.src, urlString);
-          const spath = path.join("sites", hostname, "js", url.pathname)
-          return { url: url.href, path: spath }
-        }))
-    // pageImages = $('img')
+          const spath = path.join("sites", hostname, "js", url.pathname);
+          return { url: url.href, path: spath };
+        })
+    ).then((x) => console.log(x));
 
     $(pageLinks).each((i, link) => {
       const target = link.attribs.href;
@@ -46,23 +49,20 @@ async function downloadWebsite(urlString) {
 }
 
 // files -> [{path, url}]
-const downloadFiles = files => Promise.all(
-  files.map(({ path: spath }) => utils.createPathIfNotExists(path.dirname(spath)))
-)
-  .then(
-    () => Promise.all(files.map(({ url, path }) => downloadFile(url, path)))
-  )
+const downloadFiles = (files) =>
+  Promise.all(
+    files.map(({ path: spath }) =>
+      utils.createPathIfNotExists(path.dirname(spath))
+    )
+  ).then(() =>
+    Promise.all(files.map(({ url, path }) => downloadFile(url, path)))
+  );
 
-const downloadFile = (url, path) => new Promise((resolve, reject) => {
-  const writeStream = fs.createWriteStream(path);
-  utils.getFileStream(url).then(readStream => {
-    readStream.pipe(writeStream);
-    readStream.on("error", (err) => {
-      reject(err);
-    });
-    readStream.on('finished', () => resolve(path))
+const downloadFile = (url, path) =>
+  utils.getFileStream(url).then((readStream) => {
+    readStream.pipe(fs.createWriteStream(path));
+    return { url, path };
   });
-});
 
 function downloadPage(urlString) {
   utils
