@@ -13,7 +13,9 @@ const pathExists = (pathString) => {
   });
 };
 
-const getAbsUrl = (rel, base) => new URL(rel, base)
+const getAbsUrl = (rel, base) => {
+  return new URL(rel, base)
+}
 
 function createPathIfNotExists(pathString) {
   const dirs = pathString

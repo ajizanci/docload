@@ -5,31 +5,6 @@ const URL = require("url");
 const path = require("path");
 const utils = require("./utils.js");
 
-const downloadFile = async (url, path) => {
-  const writeStream = fs.createWriteStream(path),
-    readStream = await utils.getFileStream(url);
-
-  readStream.pipe(writeStream);
-  readStream.on("error", (err) => {
-    throw err;
-  });
-};
-
-function downloadPage(urlString) {
-  utils
-    .createPathIfNotExists(utils.stripProtocolFromUrl(urlString))
-    .then(async () => {
-      const pageName = getPageName(urlString);
-
-      fs.writeFile(
-        pageName,
-        (await axios.get(urlString)).data,
-        (err) => err && console.log(err)
-      );
-    })
-    .catch((err) => console.log(err));
-}
-
 async function downloadWebsite(urlString) {
   // const styles = new Map(),
   //   images = new Map(),
@@ -49,42 +24,17 @@ async function downloadWebsite(urlString) {
     const { data } = await axios.get(url);
     const $ = cheerio.load(data),
       pageLinks = $("a"),
-      // pageStyles = $('link[rel=stylesheet]'),
-      pageScripts = $("script");
+     //pageStyles = $('link[rel=stylesheet]'),
+      scriptSelector = $("script");
+    
+    const pageScriptsDownloads = downloadFiles($(scriptSelector).get()
+        .filter(s => s.attribs.src)
+        .map(script => {
+          const url = utils.getAbsUrl(script.attribs.src, urlString);
+          const spath = path.join("sites", hostname, "js", url.pathname)
+          return { url: url.href, path: spath }
+        }))
     // pageImages = $('img')
-
-    $(pageScripts).each(async (_, script) => {
-      if (script.attribs.src && !scripts.has(script.attribs.src)) {
-        const scriptUrl = utils.getAbsUrl(script.attribs.src, urlString);
-        const scriptPath = path.join(
-          "sites",
-          hostname,
-          "js",
-          path.dirname(scriptUrl.pathname)
-        );
-
-        utils
-          .createPathIfNotExists(scriptPath)
-          .then((paths) => {
-            scripts.set(scriptUrl.href, scriptPath);
-            downloadFile(
-              scriptUrl.href,
-              path.join(scriptPath, path.basename(scriptUrl.pathname))
-            )
-              .then(() => {
-                $(this).attr(
-                  "src",
-                  path.relative(
-                    utils.stripProtocolFromUrl(urlString),
-                    scriptPath
-                  )
-                );
-              })
-              .catch((err) => console.log(err));
-          })
-          .catch((err) => console.log(err));
-      }
-    });
 
     $(pageLinks).each((i, link) => {
       const target = link.attribs.href;
@@ -93,6 +43,40 @@ async function downloadWebsite(urlString) {
         crawl(utils.getAbsUrl(target, urlString).href);
     });
   }
+}
+
+// files -> [{path, url}]
+const downloadFiles = files => Promise.all(
+  files.map(({ path: spath }) => utils.createPathIfNotExists(path.dirname(spath)))
+)
+  .then(
+    () => Promise.all(files.map(({ url, path }) => downloadFile(url, path)))
+  )
+
+const downloadFile = (url, path) => new Promise((resolve, reject) => {
+  const writeStream = fs.createWriteStream(path);
+  utils.getFileStream(url).then(readStream => {
+    readStream.pipe(writeStream);
+    readStream.on("error", (err) => {
+      reject(err);
+    });
+    readStream.on('finished', () => resolve(path))
+  });
+});
+
+function downloadPage(urlString) {
+  utils
+    .createPathIfNotExists(utils.stripProtocolFromUrl(urlString))
+    .then(async () => {
+      const pageName = getPageName(urlString);
+
+      fs.writeFile(
+        pageName,
+        (await axios.get(urlString)).data,
+        (err) => err && console.log(err)
+      );
+    })
+    .catch((err) => console.log(err));
 }
 
 downloadWebsite("http://localhost:8080/");
