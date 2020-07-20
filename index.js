@@ -6,7 +6,7 @@ const path = require("path");
 
 const pathExists = (pathString) => {
   return new Promise((resolve, reject) => {
-    fs.exists(pathString, (err, exists) => {
+    fs.exists(pathString, (exists, err) => {
       if (err) reject(err);
       else resolve(exists);
     });
@@ -14,15 +14,29 @@ const pathExists = (pathString) => {
 };
 
 async function createPathIfNotExists(pathString) {
-  if (await pathExists(pathString)) return;
+  const dirs = pathString
+    .split(path.sep)
+    .reduce(
+      (acc, dir) => [...acc, path.join(acc[acc.length - 1] || "", dir)],
+      []
+    );
+  const pathExistPromises = dirs.map((path) => pathExists(path));
 
-  let pathBuilder = "";
-  for (let i = 0; i < pathString.length; i++) {
-    pathBuilder += pathString[i];
-    if (pathString[i] == "/" && !(await pathExists(pathString))) {
-      fs.mkdir(pathBuilder, (err) => err && console.log(err));
-    }
-  }
+  return Promise.all(pathExistPromises).then((values) =>
+    Promise.all(
+      dirs
+        .filter((_, i) => !values[i])
+        .map(
+          (dir) =>
+            new Promise((resolve, reject) => {
+              fs.mkdir(dir, (err, madedir) => {
+                if (err) reject(err);
+                else resolve(madedir);
+              });
+            })
+        )
+    )
+  );
 }
 
 const getFileStream = async (url) =>
@@ -49,7 +63,7 @@ const getPageName = (urlString) => {
 };
 
 const stripProtocolFromUrl = (urlString) =>
-  urlString.slice(urlString.indexOf("//") + 2);
+  urlString.replace(/(^\w+:|^)\/\//, '');
 
 function downloadPage(urlString) {
   createPathIfNotExists(stripProtocolFromUrl(urlString))
@@ -68,41 +82,47 @@ function downloadPage(urlString) {
 async function downloadWebsite(urlString) {
   // const styles = new Map(),
   //   images = new Map(),
-  const  scripts = new Map(),
+  const scripts = new Map(),
     vistedPages = new Map(),
     hostname = URL.parse(urlString).hostname;
 
-  await createPathIfNotExists(path.resolve('test-site', hostname))
+  createPathIfNotExists(path.join("sites", hostname, ""))
+    .then(() => crawl(urlString))
+    .catch((err) => console.log(err + "HGHGJKGU"));
 
-  function crawl(url) {
+  async function crawl(url) {
     if (vistedPages.has(url)) return;
 
     vistedPages.set(url, true);
-    const { data } = axios.get(url),
-      $ = cheerio.load(data),
+    const { data } = await axios.get(url);
+    const $ = cheerio.load(data),
       pageLinks = $("a"),
       // pageStyles = $('link[rel=stylesheet]'),
       pageScripts = $("script");
     // pageImages = $('img')
 
-    $(pageScripts).each((i, style) => {
-      if (!scripts.has(style.attribs.href)) {
-        const stylePath = path.resolve(
-          "test-site",
+    $(pageScripts).each(async (i, script) => {
+      console.log(script);
+      if (!scripts.has(script.attribs.src)) {
+        const scriptPath = path.join(
+          "sites",
           hostname,
           "js",
-          style.attribs.src
+          stripProtocolFromUrl(script.attribs.src)
         );
 
-        await createPathIfNotExists(stylePath)
-
-        scripts.set(style.attribs.src, stylePath);
-        downloadFile(style, stylePath).then(() => {
-          $(this).attr(
-            "src",
-            path.relative(stripProtocolFromUrl(urlString), stylePath)
-          );
-        });
+        createPathIfNotExists(scriptPath)
+          .then(() => {
+            console.log(process.cwd());
+            scripts.set(script.attribs.src, scriptPath);
+            downloadFile(script.attribs.src, scriptPath).then(() => {
+              $(this).attr(
+                "src",
+                path.relative(stripProtocolFromUrl(urlString), scriptPath)
+              );
+            }).catch(err => console.log(err));
+          })
+          .catch((err) => console.log(err));
       }
     });
 
@@ -113,3 +133,5 @@ async function downloadWebsite(urlString) {
     });
   }
 }
+
+downloadWebsite("http://localhost:8080/");
