@@ -25,10 +25,11 @@ async function downloadWebsite(urlString) {
     const { data } = await axios.get(url);
     const $ = cheerio.load(data),
       pageLinks = $("a"),
-      //pageStyles = $('link[rel=stylesheet]'),
-      scriptSelector = $("script");
+      styleSelector = $('link[rel=stylesheet]'),
+      scriptSelector = $("script"),
+      imageSelector = $("img");
 
-    downloadFiles(
+    const scriptDownloads = downloadFiles(
       $(scriptSelector)
         .get()
         .filter((s) => s.attribs.src)
@@ -39,9 +40,35 @@ async function downloadWebsite(urlString) {
         })
     ).then((x) => console.log(x));
 
+    const styleDownloads = downloadFiles(
+      $(styleSelector)
+        .get()
+        .filter((s) => s.attribs.href)
+        .map((script) => {
+          const url = utils.getAbsUrl(script.attribs.href, urlString);
+          const spath = path.join("sites", hostname, "css", url.pathname);
+          return { url: url.href, path: spath };
+        })
+    ).then((x) => console.log(x));
+
+    const imageDownloads = downloadFiles(
+      $(imageSelector)
+        .get()
+        .filter((s) => s.attribs.src)
+        .map((script) => {
+          const url = utils.getAbsUrl(script.attribs.src, urlString);
+          const spath = path.join("sites", hostname, "img", url.pathname);
+          return { url: url.href, path: spath };
+        })
+    ).then((x) => console.log(x));
+
+    Promise.all([scriptDownloads, styleDownloads, imageDownloads])
+        .then(() => {
+          console.log($.html())
+        })
+
     $(pageLinks).each((i, link) => {
       const target = link.attribs.href;
-
       if (URL.parse(target).hostname == hostname)
         crawl(utils.getAbsUrl(target, urlString).href);
     });
