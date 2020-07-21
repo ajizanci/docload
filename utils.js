@@ -57,10 +57,50 @@ const getPageName = (pagePath) => {
 const stripProtocolFromUrl = (urlString) =>
   urlString.replace(/(^\w+:|^)\/\//, '');
 
+const processStatic = (prop, pageUrl, dirPath) => (static) => {
+  const surl = getAbsUrl(static.attribs[prop], pageUrl);
+  const spath = path.join(dirPath, path.basename(surl.pathname));
+  return { url: surl.href, path: spath };
+};
+
+const updatePaths = (elements, prop, pagePath, pageUrl) => (paths) => {
+  const pathMap = paths.reduce(
+    (acc, map) => new Map([...acc, ...map]),
+    new Map()
+  );
+  elements.forEach((s) => {
+    const scriptPath = pathMap.get(
+      getAbsUrl(s.attribs[prop], pageUrl).href
+    );
+    s.attribs[prop] = path.relative(pagePath, scriptPath);
+  });
+};
+
+// files -> [{path, url}]
+const downloadFiles = (files) =>
+  Promise.all(
+    files.map(({ path: spath }) =>
+      createPathIfNotExists(path.dirname(spath))
+    )
+  ).then(() =>
+    Promise.all(files.map(({ url, path }) => downloadFile(url, path)))
+  );
+
+const downloadFile = (url, path) =>
+  getFileStream(url).then((readStream) => {
+    readStream.pipe(fs.createWriteStream(path));
+    const pathMap = new Map();
+    pathMap.set(url, path);
+    return pathMap;
+  });
+
 module.exports = {
     getFileStream,
     stripProtocolFromUrl,
     getPageName,
     createPathIfNotExists,
     getAbsUrl,
+    processStatic,
+    downloadFiles,
+    updatePaths,
 }

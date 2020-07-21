@@ -11,7 +11,10 @@ async function downloadWebsite(urlString) {
   //   images = new Map(),
   const scripts = new Map(),
     vistedPages = new Map(),
-    hostname = URL.parse(urlString).hostname;
+    hostname = URL.parse(urlString).hostname,
+    JS_PATH = path.join("sites", hostname, "js"),
+    CSS_PATH = path.join("sites", hostname, "css"),
+    IMG_PATH = path.join("sites", hostname, "img");
 
   utils
     .createPathIfNotExists(path.join("sites", hostname))
@@ -21,8 +24,8 @@ async function downloadWebsite(urlString) {
   async function crawl(url) {
     if (vistedPages.has(url)) return;
 
-    const pagePath = path.join("sites", hostname, URL.parse(url).pathname);
     vistedPages.set(url, true);
+    const pagePath = path.join("sites", hostname, URL.parse(url).pathname);
     const { data } = await axios.get(url);
     const $ = cheerio.load(data),
       pageLinks = $("a"),
@@ -34,9 +37,9 @@ async function downloadWebsite(urlString) {
       .get()
       .filter((s) => s.attribs.src);
 
-    const scriptDownloads = downloadFiles(
-      pageScripts.map(processStatic("src", url, path.join("sites", hostname, "js")))
-    ).then(updatePaths(pageScripts, "src", pagePath, url));
+    const scriptDownloads = utils.downloadFiles(
+      pageScripts.map(utils.processStatic("src", url, JS_PATH))
+    ).then(utils.updatePaths(pageScripts, "src", pagePath, url));
 
     Promise.all([scriptDownloads]) //, styleDownloads, imageDownloads])
       .then(() => {
@@ -44,63 +47,11 @@ async function downloadWebsite(urlString) {
       });
 
     $(pageLinks).each((i, link) => {
-      const target = link.attribs.href;
-      if (URL.parse(target).hostname == hostname)
-        crawl(utils.getAbsUrl(target, url).href);
+      const target = utils.getAbsUrl(target, url)
+      if (target.hostname == hostname)
+        crawl(target.href);
     });
   }
-}
-
-const processStatic = (prop, pageUrl, dirPath) => (static) => {
-  const surl = utils.getAbsUrl(static.attribs[prop], pageUrl);
-  const spath = path.join(dirPath, surl.pathname);
-  return { url: surl.href, path: spath };
-};
-
-const updatePaths = (elements, prop, pagePath, pageUrl) => (paths) => {
-  const pathMap = paths.reduce(
-    (acc, map) => new Map([...acc, ...map]),
-    new Map()
-  );
-  elements.forEach((s) => {
-    const scriptPath = pathMap.get(
-      utils.getAbsUrl(s.attribs[prop], pageUrl).href
-    );
-    s.attribs[prop] = path.relative(pagePath, scriptPath);
-  });
-};
-
-// files -> [{path, url}]
-const downloadFiles = (files) =>
-  Promise.all(
-    files.map(({ path: spath }) =>
-      utils.createPathIfNotExists(path.dirname(spath))
-    )
-  ).then(() =>
-    Promise.all(files.map(({ url, path }) => downloadFile(url, path)))
-  );
-
-const downloadFile = (url, path) =>
-  utils.getFileStream(url).then((readStream) => {
-    readStream.pipe(fs.createWriteStream(path));
-    const pathMap = new Map();
-    pathMap.set(url, path);
-    return pathMap;
-  });
-
-function downloadPage(urlString) {
-  utils
-    .createPathIfNotExists(utils.stripProtocolFromUrl(urlString))
-    .then(async () => {
-      const pageName = getPageName(urlString);
-
-      fs.writeFile(
-        pageName,
-        (await axios.get(urlString)).data,
-        (err) => err && console.log(err)
-      );
-    })
-    .catch((err) => console.log(err));
 }
 
 downloadWebsite("http://localhost:8080/");
