@@ -54,20 +54,19 @@ const getElements = (query, doc) => doc(doc(query)).get()
 const getFileStream = async (url) =>
   (await axios.get(url, { responseType: "stream" })).data;
 
-const getPageName = (pagePath) => {
-  if (/\.html$/.test(pagePath)) {
+const getFileName = (pagePath, ext) => {
+  if (path.extname(pagePath) == ext)
     return pagePath;
-  } else {
-    return path.join(pagePath, "index.html");
-  }
+
+  return pagePath + ext;
 };
 
 const stripProtocolFromUrl = (urlString) =>
   urlString.replace(/(^\w+:|^)\/\//, '');
 
-const processStatic = (prop, pageUrl, dirPath) => (static) => {
+const processStatic = (prop, pageUrl, dirPath, ext) => (static) => {
   const surl = getAbsUrl(static.attribs[prop], pageUrl);
-  const spath = path.join(dirPath, path.basename(surl.pathname));
+  const spath = path.join(dirPath, getFileName(path.basename(surl.pathname), ext));
   return { url: surl.href, path: spath };
 };
 
@@ -116,9 +115,7 @@ function downloadFile(filesMap, url, path) {
 }
 
 module.exports = {
-    getFileStream,
     stripProtocolFromUrl,
-    getPageName,
     createPathIfNotExists,
     getAbsUrl,
     processStatic,
