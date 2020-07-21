@@ -7,9 +7,9 @@ const utils = require("./utils.js");
 const { resolve } = require("path");
 
 async function downloadWebsite(urlString) {
-  // const styles = new Map(),
-  //   images = new Map(),
-  const scripts = new Map(),
+  const styles = new Map(),
+    images = new Map(),
+    scripts = new Map(),
     vistedPages = new Map(),
     hostname = URL.parse(urlString).hostname,
     JS_PATH = path.join("sites", hostname, "js"),
@@ -24,32 +24,43 @@ async function downloadWebsite(urlString) {
   async function crawl(url) {
     if (vistedPages.has(url)) return;
 
-    vistedPages.set(url, true);
     const pagePath = path.join("sites", hostname, URL.parse(url).pathname);
     const { data } = await axios.get(url);
-    const $ = cheerio.load(data),
-      pageLinks = $("a"),
-      styleSelector = $("link[rel=stylesheet]"),
-      scriptSelector = $("script"),
-      imageSelector = $("img");
+    const $ = utils.loadDoc(data),
+      pageLinks = utils.getElements("a", $),
+      pageStyles = utils.getElements("link[rel=stylesheet]", $),
+      pageScripts = utils.getElements("script", $).filter((s) => s.attribs.src),
+      pageImages = utils.getElements("img", $);
 
-    const pageScripts = $(scriptSelector)
-      .get()
-      .filter((s) => s.attribs.src);
+    const scriptDownloads = utils
+      .downloadFiles(
+        scripts,
+        pageScripts.map(utils.processStatic("src", url, JS_PATH))
+      )
+      .then(utils.updatePaths(pageScripts, "src", pagePath, url));
 
-    const scriptDownloads = utils.downloadFiles(
-      pageScripts.map(utils.processStatic("src", url, JS_PATH))
-    ).then(utils.updatePaths(pageScripts, "src", pagePath, url));
+    const styleDownloads = utils
+      .downloadFiles(
+        styles,
+        pageStyles.map(utils.processStatic("href", url, CSS_PATH))
+      )
+      .then(utils.updatePaths(pageStyles, "href", pagePath, url));
 
-    Promise.all([scriptDownloads]) //, styleDownloads, imageDownloads])
+    Promise.all([scriptDownloads, styleDownloads]) //, imageDownloads])
       .then(() => {
-        fs.writeFile(utils.getPageName(pagePath), $.html(), err => err && console.log(err))
+        fs.writeFile(
+          utils.getPageName(pagePath),
+          $.html(),
+          (err) => {
+            if (err) return console.log(err)
+            vistedPages.set(url, utils.getPageName(pagePath));
+          }
+        );
       });
 
     $(pageLinks).each((i, link) => {
-      const target = utils.getAbsUrl(target, url)
-      if (target.hostname == hostname)
-        crawl(target.href);
+      const target = utils.getAbsUrl(target, url);
+      if (target.hostname == hostname) crawl(target.href);
     });
   }
 }
