@@ -1,14 +1,11 @@
 const axios = require("axios");
-const cheerio = require("cheerio");
 const fs = require("fs");
 const URL = require("url");
 const path = require("path");
 const utils = require("./utils.js");
-const { resolve } = require("path");
 
 async function downloadWebsite(urlString) {
   const styles = new Map(),
-    images = new Map(),
     scripts = new Map(),
     vistedPages = new Map(),
     hostname = URL.parse(urlString).hostname,
@@ -23,9 +20,13 @@ async function downloadWebsite(urlString) {
   async function crawl(url) {
     if (vistedPages.has(url)) return utils.makeMap(url, vistedPages.get(url));
 
-    console.log("Downloading " + url)
-    console.log()
-    const pagePath = path.join("sites", hostname, URL.parse(url).pathname);
+    console.log("Downloading " + url);
+    console.log();
+    const pagePath = utils.getFileName(
+      path.join("sites", hostname, URL.parse(url).pathname),
+      ".html",
+      "index"
+    );
     const { data } = await axios.get(url);
     const $ = utils.loadDoc(data),
       pageLinks = utils.getElements("a", $),
@@ -67,20 +68,20 @@ async function downloadWebsite(urlString) {
         )
       )
       .then(utils.updatePaths(pageLinks, "href", pagePath, url))
+      .then(() => utils.createPathIfNotExists(path.dirname(pagePath)))
       .then(
         () =>
           new Promise((resolve, reject) => {
-            const pageName = utils.getFileName(pagePath, ".html");
-            fs.writeFile(pageName, $.html(), (err) => {
+            fs.writeFile(pagePath, $.html(), (err) => {
               if (err) reject(err);
-              else resolve(pageName);
+              else resolve();
             });
           })
       )
-      .then((pageName) => {
-        vistedPages.set(url, pageName);
-        console.log(url + " downloaded")
-        return utils.makeMap(url, pageName);
+      .then(() => {
+        vistedPages.set(url, pagePath);
+        console.log(url + " downloaded");
+        return utils.makeMap(url, pagePath);
       });
   }
 }
