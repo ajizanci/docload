@@ -61,6 +61,8 @@ const getFileName = (pagePath, ext) => {
   return pagePath + ext;
 };
 
+const makeMap = (key, value) => (new Map()).set(key, value)
+
 const stripProtocolFromUrl = (urlString) =>
   urlString.replace(/(^\w+:|^)\/\//, '');
 
@@ -95,8 +97,7 @@ const downloadFiles = (filesMap, files) =>
 
 function downloadFile(filesMap, url, path) {
   if (filesMap.has(url)) {
-    const pathMap = new Map();
-    pathMap.set(url, filesMap.get(url));
+    const pathMap = makeMap(url, filesMap.get(url));
     return Promise.resolve(pathMap)
   }
 
@@ -106,11 +107,9 @@ function downloadFile(filesMap, url, path) {
 
     console.log("Downloading " + url + " ...")
     writeStream.on('finish', () => console.log(url + " downloaded."))
-
-    const pathMap = new Map();
-    pathMap.set(url, path);
     filesMap.set(url, path);
-    return pathMap;
+
+    return makeMap(url, path);
   });
 }
 
@@ -123,4 +122,6 @@ module.exports = {
     updatePaths,
     loadDoc,
     getElements,
+    getFileName,
+    makeMap,
 }

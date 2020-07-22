@@ -21,8 +21,10 @@ async function downloadWebsite(urlString) {
     .catch((err) => console.log(err));
 
   async function crawl(url) {
-    if (vistedPages.has(url)) return vistedPages.get(url);
+    if (vistedPages.has(url)) return utils.makeMap(url, vistedPages.get(url));
 
+    console.log("Downloading " + url)
+    console.log()
     const pagePath = path.join("sites", hostname, URL.parse(url).pathname);
     const { data } = await axios.get(url);
     const $ = utils.loadDoc(data),
@@ -33,34 +35,53 @@ async function downloadWebsite(urlString) {
     const scriptDownloads = utils
       .downloadFiles(
         scripts,
-        pageScripts.map(utils.processStatic("src", url, JS_PATH, '.js'))
+        pageScripts.map(utils.processStatic("src", url, JS_PATH, ".js"))
       )
       .then(utils.updatePaths(pageScripts, "src", pagePath, url));
 
     const styleDownloads = utils
       .downloadFiles(
         styles,
-        pageStyles.map(utils.processStatic("href", url, CSS_PATH, '.css'))
+        pageStyles.map(utils.processStatic("href", url, CSS_PATH, ".css"))
       )
       .then(utils.updatePaths(pageStyles, "href", pagePath, url));
 
-    Promise.all([scriptDownloads, styleDownloads]) //, imageDownloads])
-      .then(() => {
-        
-        // fs.writeFile(
-        //   utils.getPageName(pagePath),
-        //   $.html(),
-        //   (err) => {
-        //     if (err) return console.log(err)
-        //     vistedPages.set(url, utils.getPageName(pagePath));
-        //   }
-        // );
+    return Promise.all([scriptDownloads, styleDownloads]) //, imageDownloads])
+      .then(() =>
+        Promise.all(
+          pageLinks
+            .filter((l) => l.attribs.href)
+            .map((l) => utils.getAbsUrl(l.attribs.href, url))
+            .filter((target) => target.hostname == hostname)
+            .map((target) => {
+              if (vistedPages.has(target.href)) {
+                const pathMap = utils.makeMap(
+                  target.href,
+                  visitedPages.get(target.href)
+                );
+                return Promise.resolve(pathMap);
+              } else {
+                return crawl(target.href);
+              }
+            })
+        )
+      )
+      .then(utils.updatePaths(pageLinks, "href", pagePath, url))
+      .then(
+        () =>
+          new Promise((resolve, reject) => {
+            const pageName = utils.getFileName(pagePath, ".html");
+            fs.writeFile(pageName, $.html(), (err) => {
+              if (err) reject(err);
+              else resolve(pageName);
+            });
+          })
+      )
+      .then((pageName) => {
+        vistedPages.set(url, pageName);
+        console.log(url + " downloaded")
+        return utils.makeMap(url, pageName);
       });
-
-    $(pageLinks).each((i, link) => {
-      const target = utils.getAbsUrl(target, url);
-      if (target.hostname == hostname) crawl(target.href);
-    });
   }
 }
 
