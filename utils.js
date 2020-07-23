@@ -35,8 +35,8 @@ function createPathIfNotExists(pathString) {
             new Promise((resolve, reject) => {
               console.log("Creating " + dir + " ...");
               fs.mkdir(dir, (err) => {
-                if (err && err.code != 'EEXIST') {
-                  reject(err)
+                if (err && err.code != "EEXIST") {
+                  reject(err);
                 } else {
                   console.log("Created " + dir);
                   resolve(dir);
@@ -52,13 +52,22 @@ const loadDoc = (html) => cheerio.load(html);
 
 const getElements = (query, doc) => doc(doc(query)).get();
 
-const getFileStream = async (url) =>
-  (await axios.get(url, { responseType: "stream" })).data;
+const getFileStream = async (url) => {
+  try {
+    return (await axios.get(url, { responseType: "stream" })).data;
+  } catch {
+    return null;
+  }
+}
 
 const getFileName = (pagePath, ext, defaultName) => {
-  if (path.extname(pagePath) == ext) return pagePath;
+  if (path.extname(pagePath) == ext)
+    return pagePath;
 
-  return path.join(pagePath, defaultName + ext);
+  if ((new RegExp(`${path.sep}$`)).test(pagePath))
+    return path.join(pagePath, defaultName + ext);
+
+  return pagePath + ext;
 };
 
 const makeMap = (key, value) => new Map().set(key, value);
@@ -91,11 +100,7 @@ const updatePaths = (elements, prop, pagePath, pageUrl) => (paths) => {
 
 // files -> [{path, url}]
 const downloadFiles = (filesMap, files) =>
-  Promise.all(
-    files.map(({ path: spath }) => createPathIfNotExists(path.dirname(spath)))
-  ).then(() =>
-    Promise.all(files.map(({ url, path }) => downloadFile(filesMap, url, path)))
-  );
+  Promise.all(files.map(({ url, path }) => downloadFile(filesMap, url, path)));
 
 function downloadFile(filesMap, url, path) {
   if (filesMap.has(url)) {
@@ -104,12 +109,14 @@ function downloadFile(filesMap, url, path) {
   }
 
   return getFileStream(url).then((readStream) => {
-    const writeStream = fs.createWriteStream(path);
-    readStream.pipe(writeStream);
+    if (readStream) {
+      const writeStream = fs.createWriteStream(path);
+      readStream.pipe(writeStream);
 
-    console.log("Downloading " + url + " ...");
-    writeStream.on("finish", () => console.log(url + " downloaded."));
-    filesMap.set(url, path);
+      console.log("Downloading " + url + " ...");
+      writeStream.on("finish", () => console.log(url + " downloaded."));
+      filesMap.set(url, path);
+    }
 
     return makeMap(url, path);
   });
@@ -125,4 +132,5 @@ module.exports = {
   getElements,
   getFileName,
   makeMap,
+  downloadFile,
 };

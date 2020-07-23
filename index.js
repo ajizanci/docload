@@ -21,11 +21,18 @@ function downloadWebsite(urlString) {
     if (vistedPages.has(url)) return utils.makeMap(url, vistedPages.get(url));
 
     console.log("Downloading " + url);
+    const extension = path.extname(URL.parse(url).pathname);
+
     const pagePath = utils.getFileName(
       path.join("sites", hostname, URL.parse(url).pathname),
-      path.extname(URL.parse(url).pathname) || ".html",
+      extension || ".html",
       "index"
     );
+
+    if (extension && !['.html', '.htm'].includes(extension))
+      return utils.createPathIfNotExists(path.dirname(pagePath))
+             .then(() => utils.downloadFile(vistedPages, url, pagePath))
+
     vistedPages.set(url, pagePath);
 
     let resp;
@@ -96,4 +103,4 @@ function downloadWebsite(urlString) {
   }
 }
 
-downloadWebsite("http://testing-ground.scraping.pro/");
+downloadWebsite("https://nodejs.org/api/");
