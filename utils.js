@@ -58,13 +58,12 @@ const getFileStream = async (url) => {
   } catch {
     return null;
   }
-}
+};
 
 const getFileName = (pagePath, ext, defaultName) => {
-  if (path.extname(pagePath) == ext)
-    return pagePath;
+  if (path.extname(pagePath) == ext) return pagePath;
 
-  if ((new RegExp(`${path.sep}$`)).test(pagePath))
+  if (new RegExp(`${path.sep}$`).test(pagePath))
     return path.join(pagePath, defaultName + ext);
 
   return pagePath + ext;
@@ -122,15 +121,59 @@ function downloadFile(filesMap, url, path) {
   });
 }
 
+const handleStatics = ({
+  pagePath,
+  dirPath,
+  url,
+  prop,
+  ext,
+  elements,
+  filesMap,
+}) =>
+  createPathIfNotExists(dirPath)
+    .then(() =>
+      downloadFiles(
+        filesMap,
+        elements.map(processStatic(prop, url, dirPath, ext))
+      )
+    )
+    .then(updatePaths(elements, prop, pagePath, url));
+
+const writeHtml = (pagePath, html) =>
+  new Promise((resolve, reject) => {
+    fs.writeFile(pagePath, html, (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+
+const crawLinks = ({ links, url, crawler, visitedPages, hostname }) =>
+  Promise.all(
+    links
+      .filter((l) => l.attribs.href && !l.attribs.href.includes("#"))
+      .map((l) => getAbsUrl(l.attribs.href, url))
+      .filter((target) => target.hostname == hostname)
+      .map((target) => {
+        if (visitedPages.has(target.href)) {
+          return Promise.resolve(
+            makeMap(target.href, visitedPages.get(target.href))
+          );
+        } else {
+          return crawler(target.href);
+        }
+      })
+  );
+
 module.exports = {
   createPathIfNotExists,
+  writeHtml,
+  crawLinks,
   getAbsUrl,
-  processStatic,
-  downloadFiles,
-  updatePaths,
+  handleStatics,
   loadDoc,
   getElements,
   getFileName,
+  updatePaths,
   makeMap,
   downloadFile,
 };

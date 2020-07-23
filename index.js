@@ -7,7 +7,7 @@ const utils = require("./utils.js");
 function downloadWebsite(urlString) {
   const styles = new Map(),
     scripts = new Map(),
-    vistedPages = new Map(),
+    visitedPages = new Map(),
     hostname = URL.parse(urlString).hostname,
     JS_PATH = path.join("sites", hostname, "js"),
     CSS_PATH = path.join("sites", hostname, "css");
@@ -18,84 +18,68 @@ function downloadWebsite(urlString) {
     .catch((err) => console.log(err));
 
   async function crawl(url) {
-    if (vistedPages.has(url)) return utils.makeMap(url, vistedPages.get(url));
+    if (visitedPages.has(url)) return utils.makeMap(url, visitedPages.get(url));
 
     console.log("Downloading " + url);
     const extension = path.extname(URL.parse(url).pathname);
-
     const pagePath = utils.getFileName(
       path.join("sites", hostname, URL.parse(url).pathname),
       extension || ".html",
       "index"
     );
-
-    if (extension && !['.html', '.htm'].includes(extension))
-      return utils.createPathIfNotExists(path.dirname(pagePath))
-             .then(() => utils.downloadFile(vistedPages, url, pagePath))
-
-    vistedPages.set(url, pagePath);
+    visitedPages.set(url, pagePath);
+    
+    if (extension && ![".html", ".htm"].includes(extension)) {
+      return utils
+        .createPathIfNotExists(path.dirname(pagePath))
+        .then(() => utils.downloadFile(visitedPages, url, pagePath));
+    }
 
     let resp;
     try {
       resp = await axios.get(url);
     } catch {
-      return utils.makeMap(url, '')
+      return utils.makeMap(url, "");
     }
 
     const $ = utils.loadDoc(resp.data),
-      pageLinks = utils
-        .getElements("a", $)
-        .filter((l) => l.attribs.href && !l.attribs.href.includes("#")),
+      pageLinks = utils.getElements("a", $),
       pageStyles = utils.getElements("link[rel=stylesheet]", $),
       pageScripts = utils.getElements("script", $).filter((s) => s.attribs.src);
 
-    const scriptDownloads = utils
-      .createPathIfNotExists(JS_PATH)
-      .then(() => utils.downloadFiles(
-        scripts,
-        pageScripts.map(utils.processStatic("src", url, JS_PATH, ".js"))
-      ))
-      .then(utils.updatePaths(pageScripts, "src", pagePath, url));
+    const scriptDownloads = utils.handleStatics({
+      pagePath,
+      dirPath: JS_PATH,
+      url,
+      ext: ".js",
+      prop: "src",
+      elements: pageScripts,
+      filesMap: scripts,
+    });
 
-    const styleDownloads = utils
-      .createPathIfNotExists(CSS_PATH)
-      .then(() => utils.downloadFiles(
-        styles,
-        pageStyles.map(utils.processStatic("href", url, CSS_PATH, ".css"))
-      ))
-      .then(utils.updatePaths(pageStyles, "href", pagePath, url));
+    const styleDownloads = utils.handleStatics({
+      pagePath,
+      dirPath: CSS_PATH,
+      url,
+      ext: ".css",
+      prop: "href",
+      elements: pageStyles,
+      filesMap: styles,
+    });
 
     return Promise.all([scriptDownloads, styleDownloads]) //, imageDownloads])
       .then(() =>
-        Promise.all(
-          pageLinks
-            .filter((l) => l.attribs.href)
-            .map((l) => utils.getAbsUrl(l.attribs.href, url))
-            .filter((target) => target.hostname == hostname)
-            .map((target) => {
-              if (vistedPages.has(target.href)) {
-                const pathMap = utils.makeMap(
-                  target.href,
-                  vistedPages.get(target.href)
-                );
-                return Promise.resolve(pathMap);
-              } else {
-                return crawl(target.href);
-              }
-            })
-        )
+        utils.crawLinks({
+          links: pageLinks,
+          url,
+          crawler: crawl,
+          visitedPages,
+          hostname,
+        })
       )
       .then(utils.updatePaths(pageLinks, "href", pagePath, url))
       .then(() => utils.createPathIfNotExists(path.dirname(pagePath)))
-      .then(
-        () =>
-          new Promise((resolve, reject) => {
-            fs.writeFile(pagePath, $.html(), (err) => {
-              if (err) reject(err);
-              else resolve();
-            });
-          })
-      )
+      .then(() => utils.writeHtml(pagePath, $.html()))
       .then(() => {
         console.log(url + " downloaded");
         return utils.makeMap(url, pagePath);
@@ -103,4 +87,4 @@ function downloadWebsite(urlString) {
   }
 }
 
-downloadWebsite("https://nodejs.org/api/");
+downloadWebsite("http://localhost:8080/");
