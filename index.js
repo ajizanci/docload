@@ -4,7 +4,7 @@ const URL = require("url");
 const path = require("path");
 const utils = require("./utils.js");
 
-async function downloadWebsite(urlString) {
+function downloadWebsite(urlString) {
   const styles = new Map(),
     scripts = new Map(),
     vistedPages = new Map(),
@@ -21,30 +21,41 @@ async function downloadWebsite(urlString) {
     if (vistedPages.has(url)) return utils.makeMap(url, vistedPages.get(url));
 
     console.log("Downloading " + url);
-    console.log();
     const pagePath = utils.getFileName(
       path.join("sites", hostname, URL.parse(url).pathname),
-      ".html",
+      path.extname(URL.parse(url).pathname) || ".html",
       "index"
     );
-    const { data } = await axios.get(url);
-    const $ = utils.loadDoc(data),
-      pageLinks = utils.getElements("a", $),
+    vistedPages.set(url, pagePath);
+
+    let resp;
+    try {
+      resp = await axios.get(url);
+    } catch {
+      return utils.makeMap(url, '')
+    }
+
+    const $ = utils.loadDoc(resp.data),
+      pageLinks = utils
+        .getElements("a", $)
+        .filter((l) => l.attribs.href && !l.attribs.href.includes("#")),
       pageStyles = utils.getElements("link[rel=stylesheet]", $),
       pageScripts = utils.getElements("script", $).filter((s) => s.attribs.src);
 
     const scriptDownloads = utils
-      .downloadFiles(
+      .createPathIfNotExists(JS_PATH)
+      .then(() => utils.downloadFiles(
         scripts,
         pageScripts.map(utils.processStatic("src", url, JS_PATH, ".js"))
-      )
+      ))
       .then(utils.updatePaths(pageScripts, "src", pagePath, url));
 
     const styleDownloads = utils
-      .downloadFiles(
+      .createPathIfNotExists(CSS_PATH)
+      .then(() => utils.downloadFiles(
         styles,
         pageStyles.map(utils.processStatic("href", url, CSS_PATH, ".css"))
-      )
+      ))
       .then(utils.updatePaths(pageStyles, "href", pagePath, url));
 
     return Promise.all([scriptDownloads, styleDownloads]) //, imageDownloads])
@@ -58,7 +69,7 @@ async function downloadWebsite(urlString) {
               if (vistedPages.has(target.href)) {
                 const pathMap = utils.makeMap(
                   target.href,
-                  visitedPages.get(target.href)
+                  vistedPages.get(target.href)
                 );
                 return Promise.resolve(pathMap);
               } else {
@@ -79,11 +90,10 @@ async function downloadWebsite(urlString) {
           })
       )
       .then(() => {
-        vistedPages.set(url, pagePath);
         console.log(url + " downloaded");
         return utils.makeMap(url, pagePath);
       });
   }
 }
 
-downloadWebsite("http://localhost:8080/");
+downloadWebsite("http://testing-ground.scraping.pro/");

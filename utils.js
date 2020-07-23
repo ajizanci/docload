@@ -35,8 +35,9 @@ function createPathIfNotExists(pathString) {
             new Promise((resolve, reject) => {
               console.log("Creating " + dir + " ...");
               fs.mkdir(dir, (err) => {
-                if (err) reject(err);
-                else {
+                if (err && err.code != 'EEXIST') {
+                  reject(err)
+                } else {
                   console.log("Created " + dir);
                   resolve(dir);
                 }
@@ -82,7 +83,9 @@ const updatePaths = (elements, prop, pagePath, pageUrl) => (paths) => {
   );
   elements.forEach((s) => {
     const staticPath = pathMap.get(getAbsUrl(s.attribs[prop], pageUrl).href);
-    s.attribs[prop] = path.relative(path.dirname(pagePath), staticPath);
+    s.attribs[prop] = staticPath
+      ? path.relative(path.dirname(pagePath), staticPath)
+      : "#";
   });
 };
 
