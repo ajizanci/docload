@@ -12,11 +12,6 @@ function downloadWebsite(urlString) {
     JS_PATH = path.join("sites", hostname, "js"),
     CSS_PATH = path.join("sites", hostname, "css");
 
-  utils
-    .createPathIfNotExists(path.join("sites", hostname))
-    .then(() => crawl(urlString))
-    .catch((err) => console.log(err));
-
   async function crawl(url) {
     if (visitedPages.has(url)) return utils.makeMap(url, visitedPages.get(url));
 
@@ -28,12 +23,11 @@ function downloadWebsite(urlString) {
       "index"
     );
     visitedPages.set(url, pagePath);
-    
-    if (extension && ![".html", ".htm"].includes(extension)) {
+
+    if (extension && ![".html", ".htm"].includes(extension))
       return utils
         .createPathIfNotExists(path.dirname(pagePath))
         .then(() => utils.downloadFile(visitedPages, url, pagePath));
-    }
 
     let resp;
     try {
@@ -85,6 +79,10 @@ function downloadWebsite(urlString) {
         return utils.makeMap(url, pagePath);
       });
   }
+
+  return utils
+    .createPathIfNotExists(path.join("sites", hostname))
+    .then(() => crawl(urlString))
 }
 
 downloadWebsite("http://localhost:8080/");
