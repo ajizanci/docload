@@ -20,7 +20,7 @@ function downloadWebsite(urlString) {
       "index"
     );
 
-    if (visitedPages.has(url)) return { url, path: pagePath };
+    if (visitedPages.has(url)) return { [url]: pagePath };
 
     if (![".html", ".htm", ".php"].includes(path.extname(pagePath)))
       return utils
@@ -32,7 +32,8 @@ function downloadWebsite(urlString) {
     let resp;
     try {
       resp = await axios.get(url);
-    } catch {
+    } catch (error) {
+      console.log(`Could not get ${url}: ${error.code}`)
       return "";
     }
 
@@ -75,7 +76,7 @@ function downloadWebsite(urlString) {
       .then(() => utils.writeHtml(pagePath, $.html()))
       .then(() => {
         console.log(url + " downloaded");
-        return { url, path: pagePath };
+        return { [url]: pagePath };
       });
   }
 

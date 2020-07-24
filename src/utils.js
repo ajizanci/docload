@@ -101,7 +101,7 @@ const downloadFiles = (filesSet, files) =>
 
 function downloadFile(filesSet, url, path) {
   if (filesSet.has(url))
-    return Promise.resolve({ url, path });
+    return Promise.resolve({ [url]: path });
 
   return getFileStream(url).then((readStream) => {
     if (readStream) {
@@ -113,7 +113,7 @@ function downloadFile(filesSet, url, path) {
       filesSet.add(url);
     }
 
-    return { url, path };
+    return { [url]: path };
   });
 }
 
