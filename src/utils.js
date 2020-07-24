@@ -61,10 +61,11 @@ const getFileStream = async (url) => {
 };
 
 const getFileName = (pagePath, ext, defaultName) => {
-  if (path.extname(pagePath) == ext) return pagePath;
+  const re = new RegExp(`\\${path.sep}$`)
+  if (re.test(pagePath))
+    return path.join(pagePath, defaultName + '.html');
 
-  if (new RegExp(`${path.sep}$`).test(pagePath))
-    return path.join(pagePath, defaultName + ext);
+  if (path.extname(pagePath) == ext) return pagePath;
 
   return pagePath + ext;
 };

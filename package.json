@@ -1,16 +1,19 @@
 {
   "name": "docload",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "",
-  "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "http-server test-site && docload http://localhost:8080/"
+  },
+  "bin": {
+    "docload": "src/index.js"
   },
   "author": "ajizanci",
   "license": "ISC",
   "dependencies": {
-    "@types/node": "^14.0.23",
+    "@types/node": "^4.0.23",
     "axios": "^0.19.2",
-    "cheerio": "^1.0.0-rc.3"
+    "cheerio": "^1.0.0-rc.3",
+    "commander": "^6.0.0"
   }
 }

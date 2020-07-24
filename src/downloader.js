@@ -15,19 +15,20 @@ function downloadWebsite(urlString) {
   async function crawl(url) {
     if (visitedPages.has(url)) return utils.makeMap(url, visitedPages.get(url));
 
-    console.log("Downloading " + url);
-    const extension = path.extname(URL.parse(url).pathname);
+    //console.log("Downloading " + url);
+    const urlPath = URL.parse(url).pathname;
     const pagePath = utils.getFileName(
-      path.join("sites", hostname, URL.parse(url).pathname),
-      extension || ".html",
+      path.join("sites", hostname, urlPath),
+      path.extname(urlPath) || ".html",
       "index"
     );
-    visitedPages.set(url, pagePath);
 
-    if (extension && ![".html", ".htm"].includes(extension))
+    if (![".html", ".htm", ".php"].includes(path.extname(pagePath)))
       return utils
         .createPathIfNotExists(path.dirname(pagePath))
         .then(() => utils.downloadFile(visitedPages, url, pagePath));
+
+    visitedPages.set(url, pagePath);
 
     let resp;
     try {
@@ -82,7 +83,9 @@ function downloadWebsite(urlString) {
 
   return utils
     .createPathIfNotExists(path.join("sites", hostname))
-    .then(() => crawl(urlString))
+    .then(() => crawl(urlString));
 }
 
-downloadWebsite("http://localhost:8080/");
+module.exports = {
+  downloadWebsite
+}
