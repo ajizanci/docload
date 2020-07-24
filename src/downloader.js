@@ -5,17 +5,14 @@ const path = require("path");
 const utils = require("./utils.js");
 
 function downloadWebsite(urlString) {
-  const styles = new Map(),
-    scripts = new Map(),
-    visitedPages = new Map(),
+  const styles = new Set(),
+    scripts = new Set(),
+    visitedPages = new Set(),
     hostname = URL.parse(urlString).hostname,
     JS_PATH = path.join("sites", hostname, "js"),
     CSS_PATH = path.join("sites", hostname, "css");
 
   async function crawl(url) {
-    if (visitedPages.has(url)) return utils.makeMap(url, visitedPages.get(url));
-
-    //console.log("Downloading " + url);
     const urlPath = URL.parse(url).pathname;
     const pagePath = utils.getFileName(
       path.join("sites", hostname, urlPath),
@@ -23,18 +20,20 @@ function downloadWebsite(urlString) {
       "index"
     );
 
+    if (visitedPages.has(url)) return { url, path: pagePath };
+
     if (![".html", ".htm", ".php"].includes(path.extname(pagePath)))
       return utils
         .createPathIfNotExists(path.dirname(pagePath))
         .then(() => utils.downloadFile(visitedPages, url, pagePath));
 
-    visitedPages.set(url, pagePath);
+    visitedPages.add(url);
 
     let resp;
     try {
       resp = await axios.get(url);
     } catch {
-      return utils.makeMap(url, "");
+      return "";
     }
 
     const $ = utils.loadDoc(resp.data),
@@ -49,7 +48,7 @@ function downloadWebsite(urlString) {
       ext: ".js",
       prop: "src",
       elements: pageScripts,
-      filesMap: scripts,
+      filesSet: scripts,
     });
 
     const styleDownloads = utils.handleStatics({
@@ -59,7 +58,7 @@ function downloadWebsite(urlString) {
       ext: ".css",
       prop: "href",
       elements: pageStyles,
-      filesMap: styles,
+      filesSet: styles,
     });
 
     return Promise.all([scriptDownloads, styleDownloads]) //, imageDownloads])
@@ -68,7 +67,6 @@ function downloadWebsite(urlString) {
           links: pageLinks,
           url,
           crawler: crawl,
-          visitedPages,
           hostname,
         })
       )
@@ -77,7 +75,7 @@ function downloadWebsite(urlString) {
       .then(() => utils.writeHtml(pagePath, $.html()))
       .then(() => {
         console.log(url + " downloaded");
-        return utils.makeMap(url, pagePath);
+        return { url, path: pagePath };
       });
   }
 

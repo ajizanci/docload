@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "",
   "scripts": {
-    "test": "http-server test-site && docload http://localhost:8080/"
+    "test": "live-server test-site && docload get http://localhost:8080/"
   },
   "bin": {
     "docload": "src/index.js"

@@ -61,16 +61,13 @@ const getFileStream = async (url) => {
 };
 
 const getFileName = (pagePath, ext, defaultName) => {
-  const re = new RegExp(`\\${path.sep}$`)
-  if (re.test(pagePath))
-    return path.join(pagePath, defaultName + '.html');
+  const re = new RegExp(`\\${path.sep}$`);
+  if (re.test(pagePath)) return path.join(pagePath, defaultName + ".html");
 
   if (path.extname(pagePath) == ext) return pagePath;
 
   return pagePath + ext;
 };
-
-const makeMap = (key, value) => new Map().set(key, value);
 
 const processStatic = (prop, pageUrl, dirPath, ext) => (static) => {
   const surl = getAbsUrl(static.attribs[prop], pageUrl);
@@ -86,12 +83,12 @@ const processStatic = (prop, pageUrl, dirPath, ext) => (static) => {
 };
 
 const updatePaths = (elements, prop, pagePath, pageUrl) => (paths) => {
-  const pathMap = paths.reduce(
-    (acc, map) => new Map([...acc, ...map]),
-    new Map()
+  const pages = paths.reduce(
+    (acc, page) => ({...acc, ...page}),
+    {}
   );
   elements.forEach((s) => {
-    const staticPath = pathMap.get(getAbsUrl(s.attribs[prop], pageUrl).href);
+    const staticPath = pages[getAbsUrl(s.attribs[prop], pageUrl).href];
     s.attribs[prop] = staticPath
       ? path.relative(path.dirname(pagePath), staticPath)
       : "#";
@@ -99,14 +96,12 @@ const updatePaths = (elements, prop, pagePath, pageUrl) => (paths) => {
 };
 
 // files -> [{path, url}]
-const downloadFiles = (filesMap, files) =>
-  Promise.all(files.map(({ url, path }) => downloadFile(filesMap, url, path)));
+const downloadFiles = (filesSet, files) =>
+  Promise.all(files.map(({ url, path }) => downloadFile(filesSet, url, path)));
 
-function downloadFile(filesMap, url, path) {
-  if (filesMap.has(url)) {
-    const pathMap = makeMap(url, filesMap.get(url));
-    return Promise.resolve(pathMap);
-  }
+function downloadFile(filesSet, url, path) {
+  if (filesSet.has(url))
+    return Promise.resolve({ url, path });
 
   return getFileStream(url).then((readStream) => {
     if (readStream) {
@@ -115,10 +110,10 @@ function downloadFile(filesMap, url, path) {
 
       console.log("Downloading " + url + " ...");
       writeStream.on("finish", () => console.log(url + " downloaded."));
-      filesMap.set(url, path);
+      filesSet.add(url);
     }
 
-    return makeMap(url, path);
+    return { url, path };
   });
 }
 
@@ -129,12 +124,12 @@ const handleStatics = ({
   prop,
   ext,
   elements,
-  filesMap,
+  filesSet,
 }) =>
   createPathIfNotExists(dirPath)
     .then(() =>
       downloadFiles(
-        filesMap,
+        filesSet,
         elements.map(processStatic(prop, url, dirPath, ext))
       )
     )
@@ -148,21 +143,13 @@ const writeHtml = (pagePath, html) =>
     });
   });
 
-const crawLinks = ({ links, url, crawler, visitedPages, hostname }) =>
+const crawLinks = ({ links, url, crawler, hostname }) =>
   Promise.all(
     links
       .filter((l) => l.attribs.href && !l.attribs.href.includes("#"))
       .map((l) => getAbsUrl(l.attribs.href, url))
       .filter((target) => target.hostname == hostname)
-      .map((target) => {
-        if (visitedPages.has(target.href)) {
-          return Promise.resolve(
-            makeMap(target.href, visitedPages.get(target.href))
-          );
-        } else {
-          return crawler(target.href);
-        }
-      })
+      .map((target) => crawler(target.href))
   );
 
 module.exports = {
@@ -175,6 +162,5 @@ module.exports = {
   getElements,
   getFileName,
   updatePaths,
-  makeMap,
   downloadFile,
 };
