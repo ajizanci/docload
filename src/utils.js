@@ -1,4 +1,3 @@
-const cheerio = require("cheerio");
 const axios = require("axios");
 const fs = require("fs");
 const { URL } = require("url");
@@ -47,8 +46,6 @@ function createPathIfNotExists(pathString) {
     )
   );
 }
-
-const loadDoc = (html) => cheerio.load(html);
 
 const getElements = (query, doc) => doc(doc(query)).get();
 
