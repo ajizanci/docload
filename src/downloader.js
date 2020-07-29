@@ -1,4 +1,4 @@
-const axios = require("axios");
+const axios = require("axios").create({ timeout: 3000 });
 const fs = require("fs");
 const URL = require("url");
 const path = require("path");
@@ -33,7 +33,7 @@ function downloadWebsite(urlString) {
     try {
       resp = await axios.get(url);
     } catch (error) {
-      console.log(`Could not get ${url}: ${error.code}`)
+      console.log(`Could not get ${url}: ${error.code || error.response.statusText}`)
       return "";
     }
 

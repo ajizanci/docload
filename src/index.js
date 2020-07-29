@@ -10,7 +10,7 @@ program
 program
   .command("get <website_url>")
   .description("Download Website")
-  .action((website_url) => downloadWebsite(website_url).catch((err) => console.log("An error occured.")));
+  .action((website_url) => downloadWebsite(website_url).catch((err) => console.log(err, "An error occured.")));
 
 program.parse(process.argv);
 
