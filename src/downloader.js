@@ -14,7 +14,7 @@ async function downloadWebsite(url) {
   const crawler = new Apify.CheerioCrawler({
     requestQueue,
     handlePageFunction,
-    handleFailedRequestFunction: () =>
+    handleFailedRequestFunction: ({ request }) =>
       console.log("Could not get " + request.url),
   });
 
