@@ -94,10 +94,10 @@ const updatePaths = (elements, prop, pagePath, pageUrl) => (paths) => {
 
 // files -> [{path, url}]
 const downloadFiles = (filesSet, files) =>
-  Promise.all(files.map(({ url, path }) => downloadFile(filesSet, url, path)));
+  Promise.all(files.map(({ url, path }) => downloadFile(url, path, filesSet)));
 
-function downloadFile(filesSet, url, path) {
-  if (filesSet.has(url))
+function downloadFile(url, path, filesSet = null) {
+  if (filesSet && filesSet.has(url))
     return Promise.resolve({ [url]: path });
 
   return getFileStream(url).then((readStream) => {
@@ -107,7 +107,7 @@ function downloadFile(filesSet, url, path) {
 
       console.log("Downloading " + url + " ...");
       writeStream.on("finish", () => console.log(url + " downloaded."));
-      filesSet.add(url);
+      if (filesSet) filesSet.add(url);
     }
 
     return { [url]: path };
@@ -155,7 +155,6 @@ module.exports = {
   crawLinks,
   getAbsUrl,
   handleStatics,
-  loadDoc,
   getElements,
   getFileName,
   updatePaths,
