@@ -105,7 +105,7 @@ function downloadFile(url, path, filesSet = null) {
       const writeStream = fs.createWriteStream(path);
       readStream.pipe(writeStream);
 
-      console.log("Downloading " + url + " ...");
+      console.log("Downloading static " + url);
       writeStream.on("finish", () => console.log(url + " downloaded."));
       if (filesSet) filesSet.add(url);
     }
@@ -140,23 +140,12 @@ const writeHtml = (pagePath, html) =>
     });
   });
 
-const crawLinks = ({ links, url, crawler, hostname }) =>
-  Promise.all(
-    links
-      .filter((l) => l.attribs.href && !l.attribs.href.includes("#"))
-      .map((l) => getAbsUrl(l.attribs.href, url))
-      .filter((target) => target.hostname == hostname)
-      .map((target) => crawler(target.href))
-  );
-
 module.exports = {
   createPathIfNotExists,
   writeHtml,
-  crawLinks,
-  getAbsUrl,
   handleStatics,
   getElements,
   getFileName,
   updatePaths,
-  downloadFile,
+  getAbsUrl
 };
