@@ -18,12 +18,13 @@ async function downloadWebsite(url) {
     requestQueue,
     additionalMimeTypes: ["application/pdf"],
     handlePageFunction: async ({ request, $, contentType }) => {
-      console.log(request.url, request.loadedUrl, contentType);
       const filePath = utils.getFileName(
         path.join(websitePath, URL.parse(request.loadedUrl).path),
         "." + contentType.type.split("/")[1],
         "index"
       );
+
+      await utils.createPathIfNotExists(path.dirname(filePath));
 
       if (contentType.type == "text/html") {
         await utils.handleStatics({
@@ -46,19 +47,36 @@ async function downloadWebsite(url) {
           prop: "src",
         });
 
-        await utils
-          .createPathIfNotExists(path.dirname(filePath))
-          .then(() => utils.writeHtml(filePath, $.html()));
-
+        const paths = []
         await Apify.utils.enqueueLinks({
           requestQueue,
           $,
           baseUrl: request.loadedUrl,
+          pseudoUrls: [url + "[.+]"],
+          transformRequestFunction: request => {
+            const pagePath = path.join(websitePath, URL.parse(request.url).path);
+            paths.push({
+              [request.url]: utils.getFileName(
+                pagePath,
+                path.extname(pagePath) || '.html',
+                'index'
+              )
+            })
+            return request
+          }
         });
+
+        utils.updatePaths(
+          utils.getElements('a', $),
+          'href',
+          filePath,
+          request.loadedUrl
+        )(paths)
+
+        await utils.writeHtml(filePath, $.html());
+
       } else {
-        await utils
-          .createPathIfNotExists(path.dirname(filePath))
-          .then(() => utils.downloadFile(request.loadedUrl, filePath));
+        await utils.downloadFile(request.loadedUrl, filePath);
       }
     },
     handleFailedRequestFunction: () =>
