@@ -2,3 +2,4 @@ node_modules
 sites
 .vscode
 apify
+debug.log
