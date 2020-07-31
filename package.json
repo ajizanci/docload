@@ -1,6 +1,6 @@
 {
   "name": "docload",
-  "version": "0.0.2",
+  "version": "1.0.2",
   "description": "",
   "scripts": {
     "test": "live-server test-site && docload get http://localhost:8080/"
