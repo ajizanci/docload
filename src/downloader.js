@@ -41,7 +41,7 @@ async function downloadWebsite(url) {
       dirPath: path.join(websitePath, "js"),
       ext: ".js",
       pagePath: filePath,
-      elements: utils.getElements("script", $),
+      elements: utils.getElements("script", $).filter((s) => s.attribs.src),
       url: request.loadedUrl,
       prop: "src",
     });
