@@ -83,7 +83,8 @@ async function downloadWebsite(url) {
     console.log("Downloaded " + request.loadedUrl);
   }
 
-  return crawler.run();
+  await crawler.run();
+  return websitePath;
 }
 
 module.exports = {
