@@ -15,5 +15,15 @@
     "apify": "^0.21.3",
     "axios": "^0.19.2",
     "commander": "^6.0.0"
-  }
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
+  },
+  "repository": "git:github.com/ajizanci/docload",
+  "keywords": [
+    "download",
+    "documentation",
+    "static",
+    "offline"
+  ]
 }
